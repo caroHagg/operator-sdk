@@ -40,6 +40,7 @@ namespace TestKubeOperator
         {
             this.fixture = fixture;
             fixture.RegisterType<V1ConfigMap>();
+            fixture.RegisterType<V1Service>();
             fixture.Start();
         }
 
@@ -191,6 +192,85 @@ namespace TestKubeOperator
             deleted.Should().BeNull();
 
             fixture.Resources.Should().HaveCount(1);
+        }
+
+        [Fact]
+        public async Task TestGetListConfigMapAsync()
+        {
+            fixture.ClearResources();
+
+            var configMap = new V1ConfigMap()
+            {
+                Metadata = new V1ObjectMeta()
+                {
+                    Name = "test",
+                    NamespaceProperty = "test",
+                },
+                Data = new Dictionary<string, string>(){ { "foo", "bar" } }
+            };
+
+            await fixture.KubernetesClient.CoreV1.CreateNamespacedConfigMapAsync(configMap, configMap.Metadata.NamespaceProperty);
+
+            var config2 = new V1ConfigMap().Initialize();
+            config2.Metadata.Name = "test-2";
+            config2.Metadata.NamespaceProperty = "test";
+
+            await fixture.KubernetesClient.CoreV1.CreateNamespacedConfigMapAsync(config2, config2.Metadata.NamespaceProperty);
+
+            var result = await fixture.KubernetesClient.CoreV1.ListNamespacedConfigMapAsync(configMap.Metadata.NamespaceProperty);
+
+            result.Should().NotBeNull();
+        }
+
+        [Fact]
+        public async Task TestGetListServiceAsync()
+        {
+            fixture.ClearResources();
+
+            var service = new V1Service()
+            {
+                Metadata = new V1ObjectMeta()
+                {
+                    Name = "test",
+                    NamespaceProperty = "test",
+                },
+                Spec = new V1ServiceSpec()
+                {
+                    Ports = new List<V1ServicePort>()
+                    {
+                        new V1ServicePort()
+                        {
+                            Name          = "http",
+                            Protocol      = "TCP",
+                            Port          = 6333,
+                            TargetPort    = 6333
+                        },
+                        new V1ServicePort()
+                        {
+                            Name          = "grpc",
+                            Protocol      = "TCP",
+                            Port          = 6334,
+                            TargetPort    = 6334
+                        },
+                        new V1ServicePort()
+                        {
+                            Name          = "p2p",
+                            Protocol      = "TCP",
+                            Port          = 6335,
+                            TargetPort    = 6335
+                        }
+                    },
+                    Selector              = new Dictionary<string, string>() {{"foo", "bar"}},
+                    Type                  = "ClusterIP",
+                    InternalTrafficPolicy = "Cluster"
+                }
+            };
+
+            fixture.AddResource(service);
+
+            var result = await fixture.KubernetesClient.CoreV1.ListNamespacedServiceAsync(service.Metadata.NamespaceProperty);
+
+            result.Should().NotBeNull();
         }
     }
 }
